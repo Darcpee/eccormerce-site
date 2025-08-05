@@ -4,12 +4,13 @@ const product = require ("../model/products");
 
 //createproducts
 exports.createProducts = async (req,res)=>{
-const { title, description, image, categories, size, color, price}=req.body;
+const { title, description,quantity, image, categories, size, color, price}=req.body;
 
 try {
    const newproduct = new product ({
      title,
      description,
+     quantity,
      image,
      categories,
      size,
@@ -30,6 +31,62 @@ try {
     error: error.message,
   }) 
 }
+};
+
+//BUYPRODUCT
+exports.buyproducts = async (req, res) => {
+  const { productId, buyQuantity } = req.body;
+
+  // STEP 1: Check that productId and buyQuantity are provided
+  if (!productId || buyQuantity === undefined) {
+    return res.status(400).json({ message: 'productId and buyQuantity are required' });
+  }
+
+  // STEP 2: Make sure buyQuantity is a real number
+  const quantityToBuy = Number(buyQuantity);
+  if (isNaN(quantityToBuy) || quantityToBuy <= 0) {
+    return res.status(400).json({
+      message: 'Invalid buyQuantity. Must be a number greater than 0.',
+    });
+  }
+
+  try {
+    // STEP 3: Find the product by ID
+    const products = await product.findById(productId);
+    if (!products) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
+    // STEP 4: Check if enough stock is available
+    if (products.quantity < quantityToBuy) {
+      return res.status(400).json({
+        message: `Insufficient stock. Only ${products.quantity} units left.`,
+      });
+    }
+
+    // STEP 5: Subtract the quantity and save
+    const newQuantity = products.quantity - quantityToBuy;
+
+    if (isNaN(newQuantity)) {
+      return res.status(400).json({ message: 'Something went wrong with quantity calculation' });
+    }
+
+    products.quantity = newQuantity;
+    await products.save();
+
+    // STEP 6: Respond with success
+    res.status(200).json({
+      message: 'Purchase successful',
+      products: products.title,
+      quantityBought: quantityToBuy,
+      remainingStock: products.quantity,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: 'Error processing purchase',
+      error: err.message,
+    });
+  }
 };
 
 //getproduct

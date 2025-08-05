@@ -8,16 +8,16 @@ exports.forgotPassword = async (req, res) => {
 
   try {
     // 1. Check if user exists
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const users = await User.findOne({ email });
+    if (!users) return res.status(404).json({ message: 'User not found' });
 
     // 2. Generate reset token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const token = jwt.sign({ id: users._id }, process.env.JWT_SECRET, { expiresIn: '15m' });
 
     // 3. Save token and expiry to user
-    user.resetToken = token;
-    user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
-    await user.save();
+    users.resetToken = token;
+    users.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes
+    await users.save();
 
     // 4. Send email with reset link
     const transporter = nodemailer.createTransport({
@@ -31,7 +31,7 @@ exports.forgotPassword = async (req, res) => {
     const resetURL = `http://localhost:3000/reset-password/${token}`;
 
     await transporter.sendMail({
-      to: user.email,
+      to: users.email,
       from: process.env.EMAIL_FROM,
       subject: 'Password Reset',
       html: `<p>You requested a password reset</p>
