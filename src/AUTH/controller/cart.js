@@ -65,16 +65,92 @@ const mongoose = require("mongoose");
    }
 };
 
+//addcartbyname
+exports.addCart = async (req, res) => {
+  const { userId, productTitle, quantity } = req.body;
+
+  // Check required fields
+  if (!userId || !productTitle) {
+    return res.status(400).json({ message: "userId and productTitle are required" });
+  }
+
+  try {
+    // Find the product by title
+    const foundProduct = await product.findOne({ title: productTitle });
+
+    if (!foundProduct) {
+      return res.status(404).json({ message: "Product not found with that title" });
+    }
+
+    const productId = foundProduct._id;
+
+    let userCart = await cart.findOne({ userId });
+
+    if (!userCart) {
+      // Create a new cart if none exists
+      userCart = new cart({
+        userId,
+        products: [{ productId, quantity: quantity || 1 }],
+      });
+    } else {
+      // Cart exists, check if product is already in the cart
+      const existingProduct = userCart.products.find(
+        (p) => p.productId.toString() === productId.toString()
+      );
+
+      if (existingProduct) {
+        existingProduct.quantity += quantity || 1;
+      } else {
+        userCart.products.push({ productId, quantity: quantity || 1 });
+      }
+    }
+
+    const savedCart = await userCart.save();
+
+    const populatedCart = await cart.findById(savedCart._id).populate({
+      path: "products.productId",
+      strictPopulate: false,
+    });
+
+    return res.status(201).json({
+      message: "Product added to cart successfully using title",
+      cart: populatedCart,
+    });
+
+  } catch (error) {
+    console.error("Error adding to cart:", error);
+    return res.status(500).json({
+      message: "Failed to add product to cart",
+      error: error.message,
+    });
+  }
+};
+
+
+
+
+
+
 //GETCART
 exports.getCart = async (req, res) => {
-  try {
-    const Cart = await cart.findOne({ userId: req.params.userId }).populate("products.productId");
 
-    if (!Cart) {
+    const { userId } = req.params;
+
+  // Validate userId
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: "Invalid or missing userId" });
+  }
+  try {
+    const userCart = await cart.findOne({ userId: req.params.userId }).populate("products.productId");
+
+    if (!userCart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    res.status(200).json(cart);
+    return res.status(200).json({
+      message: "Cart fetched successfully",
+      cart: userCart,
+    });
   } catch (error) {
     res.status(500).json({ message: "Error", error: error.message });
   }
